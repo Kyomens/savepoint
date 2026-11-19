@@ -7,6 +7,7 @@ import Avatar from '@/components/Avatar';
 import FollowButton from '@/components/FollowButton';
 import PostCard, { POST_SELECT } from '@/components/PostCard';
 import NewPostForm from './NewPostForm';
+import { PROFILE_FIELDS } from '@/lib/format';
 
 export async function generateMetadata({ params }) {
   return { title: `Comunidade · ${decodeURIComponent(params.slug).replace(/-/g, ' ')}` };
@@ -36,7 +37,7 @@ export default async function ComunidadePage({ params, searchParams }) {
   const [{ data: posts }, { count: members }, { data: playing }, { data: follows }] = await Promise.all([
     q,
     supabase.from('game_entries').select('id', { count: 'exact', head: true }).eq('game_id', game.id),
-    supabase.from('game_entries').select('user_id, profiles(id, username, display_name, avatar_color)').eq('game_id', game.id)
+    supabase.from('game_entries').select(`user_id, profiles!game_entries_user_id_fkey(${PROFILE_FIELDS})`).eq('game_id', game.id)
       .eq('status', 'jogando').order('updated_at', { ascending: false }).limit(8),
     user ? supabase.from('follows').select('following_id').eq('follower_id', user.id) : Promise.resolve({ data: [] }),
   ]);

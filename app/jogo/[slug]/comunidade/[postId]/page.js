@@ -5,7 +5,7 @@ import { loadGame, authorStatuses } from '@/lib/games';
 import Avatar from '@/components/Avatar';
 import SubmitButton from '@/components/SubmitButton';
 import PostCard, { POST_SELECT, PlayerBadge } from '@/components/PostCard';
-import { timeAgo } from '@/lib/format';
+import { timeAgo, PROFILE_FIELDS } from '@/lib/format';
 import { report } from '@/app/jogo/[slug]/actions';
 import { addReply, deleteReply, deletePost, markBest } from '../actions';
 
@@ -30,7 +30,7 @@ export default async function PostPage({ params }) {
   const { data: post } = await supabase.from('posts').select(POST_SELECT).eq('id', id).eq('game_id', game.id).maybeSingle();
   if (!post) notFound();
   const { data: replies } = await supabase.from('post_replies')
-    .select('id, body, created_at, user_id, profiles(username, display_name, avatar_color)').eq('post_id', id).order('created_at');
+    .select(`id, body, created_at, user_id, profiles(${PROFILE_FIELDS})`).eq('post_id', id).order('created_at');
   const statuses = await authorStatuses(supabase, game.id, [post.user_id, ...(replies || []).map((r) => r.user_id)]);
   const listPath = `/jogo/${game.slug}/comunidade`;
   const path = `${listPath}/${id}`;

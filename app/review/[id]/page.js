@@ -4,7 +4,7 @@ import { getSession } from '@/lib/supabase/server';
 import ReviewCard, { REVIEW_SELECT } from '@/components/ReviewCard';
 import Avatar from '@/components/Avatar';
 import SubmitButton from '@/components/SubmitButton';
-import { timeAgo } from '@/lib/format';
+import { timeAgo, PROFILE_FIELDS } from '@/lib/format';
 import { addComment, deleteComment } from '@/app/jogo/[slug]/actions';
 
 export const metadata = { title: 'Review' };
@@ -15,7 +15,7 @@ export default async function ReviewPage({ params }) {
   const { data: entry } = await supabase.from('game_entries').select(REVIEW_SELECT).eq('id', id).maybeSingle();
   if (!entry || !entry.review) notFound();
   const { data: comments } = await supabase.from('review_comments')
-    .select('id, body, created_at, user_id, profiles(username, display_name, avatar_color)').eq('entry_id', id).order('created_at');
+    .select(`id, body, created_at, user_id, profiles(${PROFILE_FIELDS})`).eq('entry_id', id).order('created_at');
 
   return (
     <main className="container page stack" style={{ maxWidth: 760, gap: 24 }}>

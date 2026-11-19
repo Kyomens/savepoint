@@ -197,3 +197,11 @@ create policy "enviar foto na propria pasta" on storage.objects for insert to au
 drop policy if exists "apagar propria foto" on storage.objects;
 create policy "apagar propria foto" on storage.objects for delete to authenticated
   using (bucket_id = 'post-images' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- =====================================================================
+-- PERMISSÕES DA API (o RLS acima continua decidindo quem pode o quê)
+-- =====================================================================
+grant usage on schema public to anon, authenticated;
+grant select on all tables in schema public to anon, authenticated;
+grant insert, update, delete on all tables in schema public to authenticated;
+grant usage, select on all sequences in schema public to authenticated;

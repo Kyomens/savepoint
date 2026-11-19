@@ -7,11 +7,24 @@ import { createAdminClient } from '@/lib/supabase/admin';
 const back = (path, msg) => redirect(`${path}?erro=${encodeURIComponent(msg)}`);
 
 export async function signIn(formData) {
-  const email = String(formData.get('email') || '').trim();
+  const login = String(formData.get('login') || '').trim();
   const password = String(formData.get('password') || '');
+  if (!login || !password) back('/entrar', 'Preencha o usuário e a senha.');
+
+  // Entra com o nome de usuário: buscamos o e-mail da conta por trás dos panos
+  let email = login;
+  if (!login.includes('@')) {
+    const admin = createAdminClient();
+    const { data: profile } = await admin.from('profiles').select('id').eq('username', login.toLowerCase()).maybeSingle();
+    if (!profile) back('/entrar', 'Usuário ou senha incorretos.');
+    const { data } = await admin.auth.admin.getUserById(profile.id);
+    email = data?.user?.email;
+    if (!email) back('/entrar', 'Usuário ou senha incorretos.');
+  }
+
   const supabase = createClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) back('/entrar', 'E-mail ou senha incorretos.');
+  if (error) back('/entrar', 'Usuário ou senha incorretos.');
   redirect('/');
 }
 

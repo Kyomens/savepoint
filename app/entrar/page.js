@@ -15,8 +15,8 @@ export default function EntrarPage({ searchParams }) {
         {searchParams?.erro && <p className="error" role="alert">{searchParams.erro}</p>}
         <form action={signIn} className="stack" style={{ gap: 14 }}>
           <label className="form-label">
-            E-mail
-            <input className="field" type="email" name="email" required autoComplete="email" />
+            Nome de usuário
+            <input className="field" name="login" required autoComplete="username" autoCapitalize="none" placeholder="ex: bia.games" />
           </label>
           <label className="form-label">
             Senha

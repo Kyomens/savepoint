@@ -1,5 +1,5 @@
 /* eslint-disable @next/next/no-img-element */
-export default function Cover({ game, width, style }) {
+export default function Cover({ game, width, style, badge }) {
   return (
     <div className="cover" style={{ width, ...style }}>
       {game?.cover_url ? (
@@ -7,6 +7,7 @@ export default function Cover({ game, width, style }) {
       ) : (
         <span className="cover-fallback">{game?.name}</span>
       )}
+      {badge ? <span className="cover-badge">{badge}</span> : null}
     </div>
   );
 }

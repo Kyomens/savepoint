@@ -1,11 +1,11 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from 'next/link';
 import Avatar from './Avatar';
-import { POST_TYPES, timeAgo } from '@/lib/format';
+import { POST_TYPES, timeAgo, PROFILE_FIELDS } from '@/lib/format';
 import { toggleVote } from '@/app/jogo/[slug]/comunidade/actions';
 
-export const POST_SELECT =
-  'id, type, title, body, image_url, has_spoiler, best_reply_id, created_at, user_id, profiles(username, display_name, avatar_color), post_votes(user_id), post_replies!post_replies_post_id_fkey(count), best:post_replies!posts_best_reply_fk(id, body, profiles(username, display_name, avatar_color))';
+// "profiles!posts_user_id_fkey" diz ao banco QUAL ligação usar entre post e autor
+export const POST_SELECT = `id, type, title, body, image_url, has_spoiler, best_reply_id, created_at, user_id, profiles!posts_user_id_fkey(${PROFILE_FIELDS}), post_votes(user_id), post_replies!post_replies_post_id_fkey(count), best:post_replies!posts_best_reply_fk(id, body, profiles(${PROFILE_FIELDS}))`;
 
 export function PlayerBadge({ status }) {
   if (status === 'zerado') return <span className="badge vet">Zerou o jogo</span>;

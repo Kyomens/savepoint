@@ -8,7 +8,7 @@ export const metadata = { title: 'Pessoas' };
 export default async function PessoasPage({ searchParams }) {
   const q = String(searchParams?.q || '').trim().toLowerCase().replace(/[^a-z0-9._ ]/g, '');
   const { supabase, user } = await getSession();
-  let query = supabase.from('profiles').select('id, username, display_name, avatar_color, bio').order('created_at', { ascending: false }).limit(40);
+  let query = supabase.from('profiles').select('id, username, display_name, avatar_color, avatar_url, bio').order('created_at', { ascending: false }).limit(40);
   if (q) query = query.or(`username.ilike.%${q}%,display_name.ilike.%${q}%`);
   const { data: people } = await query;
   const { data: follows } = user ? await supabase.from('follows').select('following_id').eq('follower_id', user.id) : { data: [] };

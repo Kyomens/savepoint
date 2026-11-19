@@ -1,163 +1,171 @@
 import Link from 'next/link';
 import { getSession } from '@/lib/supabase/server';
+import { homeLists } from '@/lib/igdb';
 import Cover from '@/components/Cover';
 import Avatar from '@/components/Avatar';
+import GameRow from '@/components/GameRow';
 import CopyButton from '@/components/CopyButton';
 import ReviewCard, { REVIEW_SELECT } from '@/components/ReviewCard';
-import { stars, STATUS_VERB } from '@/lib/format';
+import { stars, STATUS_VERB, PROFILE_FIELDS, formatDate } from '@/lib/format';
 
-async function popularThisWeek(supabase) {
-  const since = new Date(Date.now() - 7 * 86400000).toISOString();
-  const { data } = await supabase.from('game_entries').select('game_id, games(slug, name, cover_url, release_year, developer)')
-    .gte('updated_at', since).limit(1000);
-  const counts = new Map();
-  for (const e of data || []) {
-    if (!e.games) continue;
-    const c = counts.get(e.game_id) || { game: e.games, n: 0 };
-    c.n += 1;
-    counts.set(e.game_id, c);
-  }
-  return [...counts.values()].sort((a, b) => b.n - a.n).slice(0, 5);
-}
-
-function PopularCard({ popular }) {
-  return (
-    <section className="card">
-      <h2 className="label">Populares esta semana</h2>
-      {popular.length === 0 ? (
-        <p className="muted small">Ainda sem movimento esta semana. <Link href="/jogos" style={{ color: 'var(--accent-text)' }}>Explore os jogos</Link>.</p>
-      ) : (
-        <ol className="stack" style={{ listStyle: 'none', margin: 0, padding: 0, gap: 14 }}>
-          {popular.map(({ game, n }, i) => (
-            <li key={game.slug}>
-              <Link href={`/jogo/${game.slug}`} className="list-link">
-                <span className="display" style={{ width: 18, color: 'var(--faint)' }}>{i + 1}</span>
-                <Cover game={game} width={36} style={{ borderRadius: 6 }} />
-                <span className="stack" style={{ gap: 2, minWidth: 0 }}>
-                  <span style={{ fontWeight: 600, fontSize: 14 }}>{game.name}</span>
-                  <span className="muted" style={{ fontSize: 12 }}>{n} {n === 1 ? 'pessoa' : 'pessoas'} esta semana</span>
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ol>
-      )}
-    </section>
-  );
-}
+const FEATURES = [
+  ['Seu diário de jogos', 'Marque o que está jogando, o que zerou e o que quer jogar. Dê notas de meia a 5 estrelas.'],
+  ['Reviews e amigos', 'Escreva o que achou, siga amigos e descubra jogos pelas recomendações de quem tem o seu gosto.'],
+  ['Comunidade de cada jogo', 'Tire dúvidas, poste prints e encontre gente jogando o mesmo jogo que você.'],
+];
 
 export default async function Home() {
   const { supabase, user, profile } = await getSession();
-  const popular = await popularThisWeek(supabase);
 
-  if (!user) {
-    return (
-      <main className="container page layout">
-        <div className="main">
-          <section className="stack" style={{ gap: 18, padding: '40px 0' }}>
-            <h1 className="display" style={{ fontSize: 52, lineHeight: 1.05, maxWidth: 640 }}>Seu diário de jogos, junto com seus amigos.</h1>
-            <p className="muted" style={{ fontSize: 18, maxWidth: 560 }}>
-              Marque o que você está jogando, dê notas, escreva reviews, veja o que seus amigos recomendam e tire dúvidas na comunidade de cada jogo.
-            </p>
-            <div className="row">
-              <Link href="/cadastro" className="btn btn-accent">Criar conta grátis</Link>
-              <Link href="/jogos" className="btn">Explorar jogos</Link>
-            </div>
-          </section>
-        </div>
-        <aside className="side"><PopularCard popular={popular} /></aside>
-      </main>
-    );
-  }
-
-  const { data: follows } = await supabase.from('follows').select('following_id').eq('follower_id', user.id);
-  const friendIds = (follows || []).map((f) => f.following_id);
-
-  const [{ data: activity }, { data: reviews }, { data: backlog }] = await Promise.all([
-    friendIds.length
-      ? supabase.from('game_entries').select('id, status, rating, updated_at, profiles(username, display_name, avatar_color), games(slug, name, cover_url)')
-          .in('user_id', friendIds).not('status', 'is', null).order('updated_at', { ascending: false }).limit(12)
-      : Promise.resolve({ data: [] }),
-    friendIds.length
-      ? supabase.from('game_entries').select(REVIEW_SELECT).in('user_id', friendIds).not('review', 'is', null)
-          .order('updated_at', { ascending: false }).limit(15)
-      : Promise.resolve({ data: [] }),
-    supabase.from('game_entries').select('games(slug, name, cover_url)').eq('user_id', user.id).eq('status', 'quero')
-      .order('updated_at', { ascending: false }).limit(8),
+  const [lists, savepointTop, communityReviews, follows] = await Promise.all([
+    homeLists().catch((e) => {
+      console.error('homeLists:', e.message);
+      return {};
+    }),
+    supabase.from('game_stats').select('*').gte('ratings_count', 1)
+      .order('avg_stars', { ascending: false }).order('ratings_count', { ascending: false }).limit(6)
+      .then((r) => r.data || []),
+    supabase.from('game_entries').select(REVIEW_SELECT).not('review', 'is', null)
+      .order('updated_at', { ascending: false }).limit(6).then((r) => r.data || []),
+    user ? supabase.from('follows').select('following_id').eq('follower_id', user.id).then((r) => r.data || []) : Promise.resolve([]),
   ]);
 
-  return (
-    <main className="container page layout">
-      <div className="main">
-        <section className="stack" style={{ gap: 6 }}>
-          <h1 className="display" style={{ fontSize: 32 }}>Bem-vindo de volta, {profile?.display_name || profile?.username}</h1>
-          <p className="muted">Veja o que seus amigos andam jogando e avaliando.</p>
-        </section>
+  const trending = lists['em-alta'] || [];
+  const heroGame = trending.find((g) => g.artwork_url);
+  const friendIds = follows.map((f) => f.following_id);
 
-        {friendIds.length === 0 ? (
-          <section className="card-dashed stack" style={{ gap: 12 }}>
-            <h2 style={{ fontSize: 18 }}>Seu feed está vazio por enquanto</h2>
-            <p className="muted">Siga seus amigos para ver aqui o que eles estão jogando, as notas e as reviews.</p>
+  let activity = [];
+  let friendReviews = [];
+  if (friendIds.length) {
+    const [a, r] = await Promise.all([
+      supabase.from('game_entries')
+        .select(`id, status, rating, updated_at, profiles!game_entries_user_id_fkey(${PROFILE_FIELDS}), games(slug, name, cover_url)`)
+        .in('user_id', friendIds).not('status', 'is', null).order('updated_at', { ascending: false }).limit(6),
+      supabase.from('game_entries').select(REVIEW_SELECT).in('user_id', friendIds).not('review', 'is', null)
+        .order('updated_at', { ascending: false }).limit(3),
+    ]);
+    activity = a.data || [];
+    friendReviews = r.data || [];
+  }
+
+  return (
+    <main>
+      {/* ---------- Topo com arte de um jogo em alta ---------- */}
+      <section className="home-hero">
+        {heroGame && <div className="home-hero-art" style={{ backgroundImage: `url("${heroGame.artwork_url}")` }} aria-hidden="true" />}
+        <div className="home-hero-shade" aria-hidden="true" />
+        <div className="container home-hero-inner">
+          {user ? (
+            <>
+              <h1 className="display hero-title">Bem-vindo de volta, {profile?.display_name || profile?.username}.</h1>
+              <p className="hero-sub">Veja o que seus amigos andam jogando, descubra lançamentos e registre o que você jogou.</p>
+              <div className="row">
+                <Link href="/jogos" className="btn btn-accent">Explorar jogos</Link>
+                <Link href={`/u/${profile?.username}`} className="btn btn-on-image">Meu perfil</Link>
+              </div>
+            </>
+          ) : (
+            <>
+              <h1 className="display hero-title">Registre os jogos que você jogou.<br />Descubra o que jogar a seguir.</h1>
+              <p className="hero-sub">Avalie, escreva reviews, siga seus amigos e participe da comunidade de cada jogo.</p>
+              <div className="row">
+                <Link href="/cadastro" className="btn btn-accent">Criar conta grátis</Link>
+                <Link href="/entrar" className="btn btn-on-image">Já tenho conta</Link>
+              </div>
+            </>
+          )}
+        </div>
+        {heroGame && (
+          <Link href={`/jogo/${heroGame.slug}`} className="hero-credit">Arte: {heroGame.name}</Link>
+        )}
+      </section>
+
+      <div className="container page stack" style={{ gap: 52 }}>
+        {/* ---------- Visitantes: o que dá para fazer ---------- */}
+        {!user && (
+          <section className="feature-grid">
+            {FEATURES.map(([title, text]) => (
+              <div key={title} className="card stack" style={{ gap: 8 }}>
+                <h2 style={{ fontSize: 18 }}>{title}</h2>
+                <p className="muted" style={{ fontSize: 14 }}>{text}</p>
+              </div>
+            ))}
+          </section>
+        )}
+
+        {/* ---------- Usuário logado: amigos ---------- */}
+        {user && (friendIds.length === 0 ? (
+          <section className="card-dashed row" style={{ justifyContent: 'space-between', gap: 16 }}>
+            <div className="stack" style={{ gap: 4, flex: '1 1 320px' }}>
+              <h2 style={{ fontSize: 18 }}>Siga seus amigos</h2>
+              <p className="muted" style={{ fontSize: 14 }}>Assim aparece aqui o que eles estão jogando, as notas e as reviews.</p>
+            </div>
             <div className="row">
               <Link href="/pessoas" className="btn btn-accent">Encontrar pessoas</Link>
-              <Link href="/jogos" className="btn">Avaliar meus jogos</Link>
+              <CopyButton className="btn">Copiar link de convite</CopyButton>
             </div>
           </section>
         ) : (
-          <>
-            <section>
-              <div className="section-head">
-                <h2 className="label">Atividade recente dos amigos</h2>
-              </div>
-              {(activity || []).length === 0 ? (
-                <p className="muted small">Seus amigos ainda não marcaram nenhum jogo.</p>
-              ) : (
-                <div className="cover-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))' }}>
-                  {activity.map((a) => (
-                    <Link key={a.id} href={`/jogo/${a.games.slug}`} className="cover-item" title={`${a.profiles.username} ${STATUS_VERB[a.status]} ${a.games.name}`}>
-                      <Cover game={a.games} />
-                      <span className="row" style={{ gap: 6, flexWrap: 'nowrap' }}>
-                        <Avatar profile={a.profiles} size={20} />
-                        {a.rating ? <span className="stars">{stars(a.rating)}</span> : <span className="muted" style={{ fontSize: 12 }}>{STATUS_VERB[a.status]}</span>}
-                      </span>
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </section>
-            <section>
-              <h2 className="label">Reviews dos amigos</h2>
-              {(reviews || []).length === 0 ? (
-                <p className="muted small">Nenhuma review dos seus amigos ainda.</p>
-              ) : (
-                reviews.map((r) => <ReviewCard key={r.id} entry={r} userId={user.id} path="/" />)
-              )}
-            </section>
-          </>
-        )}
-      </div>
-
-      <aside className="side">
-        <PopularCard popular={popular} />
-        <section className="card">
-          <h2 className="label" style={{ marginBottom: 4 }}>Seu backlog</h2>
-          <p className="muted small" style={{ marginBottom: 14 }}>
-            {(backlog || []).length ? `Jogos em “Quero jogar”` : 'Marque jogos como “Quero jogar” para montar sua fila.'}
-          </p>
-          {(backlog || []).length > 0 && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 8 }}>
-              {backlog.map((b) => (
-                <Link key={b.games.slug} href={`/jogo/${b.games.slug}`} title={b.games.name}><Cover game={b.games} style={{ borderRadius: 6 }} /></Link>
-              ))}
+          <section className="stack" style={{ gap: 14 }}>
+            <div className="section-head" style={{ marginBottom: 0, borderBottom: '1px solid var(--line)', paddingBottom: 10 }}>
+              <h2 className="row-title">Atividade dos amigos</h2>
             </div>
+            {activity.length === 0 ? (
+              <p className="muted small">Seus amigos ainda não marcaram nenhum jogo.</p>
+            ) : (
+              <div className="poster-row">
+                {activity.map((a) => (
+                  <Link key={a.id} href={`/jogo/${a.games.slug}`} className="cover-item" title={`${a.profiles.username} ${STATUS_VERB[a.status]} ${a.games.name}`}>
+                    <Cover game={a.games} />
+                    <span className="row" style={{ gap: 6, flexWrap: 'nowrap' }}>
+                      <Avatar profile={a.profiles} size={20} />
+                      {a.rating ? <span className="stars">{stars(a.rating)}</span> : <span className="muted" style={{ fontSize: 12 }}>{STATUS_VERB[a.status]}</span>}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            )}
+            {friendReviews.length > 0 && (
+              <div>{friendReviews.map((r) => <ReviewCard key={r.id} entry={r} userId={user.id} path="/" />)}</div>
+            )}
+          </section>
+        ))}
+
+        {/* ---------- Descoberta ---------- */}
+        <GameRow title="Em alta" subtitle="Os jogos mais comentados do último ano" href="/jogos?ordem=em-alta" games={trending.slice(0, 6)} />
+        <GameRow title="Lançamentos recentes" href="/jogos?ordem=lancamentos" games={(lists.lancamentos || []).slice(0, 6)}
+          badge={(g) => (g.release_date ? formatDate(g.release_date) : null)} />
+        <GameRow title="Aclamados pela crítica" subtitle="Maiores notas da crítica especializada" href="/jogos?ordem=critica"
+          games={(lists.critica || []).slice(0, 6)} badge={(g) => (g.critic_score ? `Crítica ${g.critic_score}` : null)} />
+        <GameRow title="Favoritos do Savepoint" subtitle="Maiores notas dadas pela nossa comunidade" href="/jogos?ordem=savepoint"
+          games={savepointTop} badge={(g) => `★ ${Number(g.avg_stars).toFixed(1)}`} />
+        <GameRow title="Em breve" subtitle="Os lançamentos mais aguardados" href="/jogos?ordem=em-breve" games={(lists['em-breve'] || []).slice(0, 6)}
+          badge={(g) => (g.release_date ? formatDate(g.release_date) : null)} />
+
+        {/* ---------- Reviews da comunidade ---------- */}
+        <section className="stack" style={{ gap: 4 }}>
+          <div className="section-head" style={{ marginBottom: 0, borderBottom: '1px solid var(--line)', paddingBottom: 10 }}>
+            <h2 className="row-title">Reviews recentes da comunidade</h2>
+          </div>
+          {communityReviews.length === 0 ? (
+            <p className="muted small" style={{ paddingTop: 12 }}>Nenhuma review ainda. Que tal escrever a primeira?</p>
+          ) : (
+            <div>{communityReviews.map((r) => <ReviewCard key={r.id} entry={r} userId={user?.id} path="/" />)}</div>
           )}
         </section>
-        <section className="card-dashed stack" style={{ gap: 12 }}>
-          <h2 style={{ fontSize: 16 }}>Chame seus amigos</h2>
-          <p className="muted" style={{ fontSize: 14 }}>O Savepoint fica melhor com a sua turma. Mande o link do site para eles.</p>
-          <CopyButton>Copiar link de convite</CopyButton>
-        </section>
-      </aside>
+
+        {!user && (
+          <section className="card stack" style={{ alignItems: 'center', textAlign: 'center', gap: 12, padding: 36 }}>
+            <h2 className="display" style={{ fontSize: 26 }}>Bora montar seu perfil gamer?</h2>
+            <p className="muted">É grátis e leva menos de um minuto.</p>
+            <Link href="/cadastro" className="btn btn-accent">Criar conta</Link>
+          </section>
+        )}
+
+        <footer className="muted small" style={{ borderTop: '1px solid var(--line)', paddingTop: 20 }}>
+          Savepoint · Dados de jogos fornecidos pelo IGDB.com
+        </footer>
+      </div>
     </main>
   );
 }

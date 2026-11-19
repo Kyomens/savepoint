@@ -1,12 +1,13 @@
 import Link from 'next/link';
 import Avatar from './Avatar';
 import Cover from './Cover';
-import { stars, timeAgo } from '@/lib/format';
+import { stars, timeAgo, PROFILE_FIELDS } from '@/lib/format';
 import { toggleLike } from '@/app/jogo/[slug]/actions';
 
 // Campos que a consulta precisa trazer para este cartão:
-export const REVIEW_SELECT =
-  'id, rating, review, has_spoiler, status, updated_at, user_id, game_id, profiles(username, display_name, avatar_color), games(slug, name, cover_url), review_likes(user_id), review_comments(count)';
+// "profiles!game_entries_user_id_fkey" diz ao banco QUAL ligação usar entre review e perfil
+// (sem isso ele se confunde com a tabela de curtidas e não devolve nada)
+export const REVIEW_SELECT = `id, rating, review, has_spoiler, status, updated_at, user_id, game_id, profiles!game_entries_user_id_fkey(${PROFILE_FIELDS}), games(slug, name, cover_url), review_likes(user_id), review_comments(count)`;
 
 export default function ReviewCard({ entry, userId, showGame = true, path = '/' }) {
   const p = entry.profiles;
