@@ -5,7 +5,7 @@ import { POST_TYPES, timeAgo, PROFILE_FIELDS } from '@/lib/format';
 import { toggleVote } from '@/app/jogo/[slug]/comunidade/actions';
 
 // "profiles!posts_user_id_fkey" diz ao banco QUAL ligação usar entre post e autor
-export const POST_SELECT = `id, type, title, body, image_url, has_spoiler, best_reply_id, created_at, user_id, profiles!posts_user_id_fkey(${PROFILE_FIELDS}), post_votes(user_id), post_replies!post_replies_post_id_fkey(count), best:post_replies!posts_best_reply_fk(id, body, profiles(${PROFILE_FIELDS}))`;
+export const POST_SELECT = `id, type, title, body, image_url, has_spoiler, spoiler_scope, best_reply_id, created_at, user_id, profiles!posts_user_id_fkey(${PROFILE_FIELDS}), post_votes(user_id), post_replies!post_replies_post_id_fkey(count), best:post_replies!posts_best_reply_fk(id, body, profiles(${PROFILE_FIELDS}))`;
 
 export function PlayerBadge({ status }) {
   if (status === 'zerado') return <span className="badge vet">Zerou o jogo</span>;
@@ -45,7 +45,10 @@ export default function PostCard({ post, slug, userId, authorStatus, path, full 
       )}
       {post.has_spoiler ? (
         <details className="spoiler">
-          <summary>Este post contém spoiler. <span style={{ color: 'var(--text)', fontWeight: 600 }}>Mostrar mesmo assim</span></summary>
+          <summary>
+            <span>Spoiler{post.spoiler_scope ? <> até: <strong style={{ color: 'var(--text)' }}>{post.spoiler_scope}</strong></> : ''}.</span>
+            <span style={{ color: 'var(--text)', fontWeight: 600 }}>Mostrar mesmo assim</span>
+          </summary>
           <div className="stack">{content}</div>
         </details>
       ) : (

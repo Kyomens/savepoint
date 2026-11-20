@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { signUp } from '@/app/auth/actions';
 import SubmitButton from '@/components/SubmitButton';
+import PasswordInput from '@/components/PasswordInput';
 
 export const metadata = { title: 'Criar conta' };
 
@@ -23,7 +24,7 @@ export default function CadastroPage({ searchParams }) {
           </label>
           <label className="form-label">
             Senha
-            <input className="field" type="password" name="password" required minLength={8} autoComplete="new-password" />
+            <PasswordInput autoComplete="new-password" minLength={8} />
             <span className="hint">Pelo menos 8 caracteres.</span>
           </label>
           <SubmitButton pendingText="Criando…">Criar conta</SubmitButton>

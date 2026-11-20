@@ -2,6 +2,8 @@
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { saveEntry } from './actions';
+import { PartialStar } from '@/components/Stars';
+import { SPOILER_SCOPES } from '@/lib/format';
 
 const STATUSES = [
   ['jogando', 'Jogando'],
@@ -13,17 +15,14 @@ const STATUSES = [
 function StarPicker({ value, onChange }) {
   const [hover, setHover] = useState(0);
   const shown = hover || value;
+  const SIZE = 36;
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 2 }} onMouseLeave={() => setHover(0)}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }} onMouseLeave={() => setHover(0)}>
       {[1, 2, 3, 4, 5].map((n) => {
-        const full = shown >= n * 2;
-        const half = !full && shown === n * 2 - 1;
+        const fill = shown >= n * 2 ? 1 : shown === n * 2 - 1 ? 0.5 : 0;
         return (
-          <span key={n} style={{ position: 'relative', width: 40, height: 44, fontSize: 34, lineHeight: '44px', textAlign: 'center' }}>
-            <span aria-hidden="true" style={{ color: 'var(--off)' }}>★</span>
-            {(full || half) && (
-              <span aria-hidden="true" style={{ position: 'absolute', inset: 0, color: 'var(--accent-text)', overflow: 'hidden', width: full ? '100%' : '50%' }}>★</span>
-            )}
+          <span key={n} style={{ position: 'relative', width: SIZE, height: 44, display: 'flex', alignItems: 'center' }}>
+            <PartialStar size={SIZE} fill={fill} />
             <button type="button" aria-label={`${n - 0.5} estrelas`} onMouseEnter={() => setHover(n * 2 - 1)} onClick={() => onChange(value === n * 2 - 1 ? 0 : n * 2 - 1)}
               style={{ position: 'absolute', left: 0, top: 0, width: '50%', height: '100%', background: 'transparent', border: 0, cursor: 'pointer', padding: 0 }} />
             <button type="button" aria-label={`${n} estrelas`} onMouseEnter={() => setHover(n * 2)} onClick={() => onChange(value === n * 2 ? 0 : n * 2)}
@@ -40,6 +39,7 @@ export default function EntryForm({ game, entry, loggedIn }) {
   const [rating, setRating] = useState(entry?.rating || 0);
   const [review, setReview] = useState(entry?.review || '');
   const [spoiler, setSpoiler] = useState(!!entry?.has_spoiler);
+  const [scope, setScope] = useState(entry?.spoiler_scope || '');
   const [openReview, setOpenReview] = useState(!!entry?.review);
   const [msg, setMsg] = useState('');
   const [pending, startTransition] = useTransition();
@@ -62,7 +62,10 @@ export default function EntryForm({ game, entry, loggedIn }) {
     fd.set('status', next.status ?? status);
     fd.set('rating', next.rating ?? rating);
     fd.set('review', next.review ?? review);
-    if (next.spoiler ?? spoiler) fd.set('has_spoiler', 'on');
+    if (next.spoiler ?? spoiler) {
+      fd.set('has_spoiler', 'on');
+      fd.set('spoiler_scope', next.scope ?? scope);
+    }
     setMsg('');
     startTransition(async () => {
       const res = await saveEntry(fd);
@@ -100,6 +103,20 @@ export default function EntryForm({ game, entry, loggedIn }) {
             <input type="checkbox" checked={spoiler} onChange={(e) => setSpoiler(e.target.checked)} style={{ width: 16, height: 16, accentColor: 'var(--accent)' }} />
             Minha review tem spoiler
           </label>
+          {spoiler && (
+            <div className="stack" style={{ gap: 8 }}>
+              <label className="form-label">
+                Até que ponto do jogo vai o spoiler?
+                <input className="field" maxLength={80} value={scope} onChange={(e) => setScope(e.target.value)} placeholder="ex: depois do capítulo 5" />
+                <span className="hint">Assim quem já passou desse ponto pode ler sem medo.</span>
+              </label>
+              <div className="row" style={{ gap: 6 }}>
+                {SPOILER_SCOPES.map((s) => (
+                  <button key={s} type="button" className={`pill ${scope === s ? 'on' : ''}`} onClick={() => setScope(s)}>{s}</button>
+                ))}
+              </div>
+            </div>
+          )}
           <button type="button" className="btn btn-accent" disabled={pending} onClick={() => save()}>
             {pending ? 'Salvando…' : 'Publicar review'}
           </button>

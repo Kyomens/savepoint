@@ -4,6 +4,7 @@ import Avatar from '@/components/Avatar';
 import SubmitButton from '@/components/SubmitButton';
 import { ImageIcon } from '@/components/Icons';
 import { createPost } from './actions';
+import { SPOILER_SCOPES } from '@/lib/format';
 
 const TYPES = [
   ['duvida', 'Dúvida', 'Qual é a sua dúvida sobre o jogo?'],
@@ -16,6 +17,8 @@ export default function NewPostForm({ game, profile }) {
   const formRef = useRef(null);
   const [type, setType] = useState('duvida');
   const [fileName, setFileName] = useState('');
+  const [spoiler, setSpoiler] = useState(false);
+  const [scope, setScope] = useState('');
   const [msg, setMsg] = useState(null);
   const hint = TYPES.find((t) => t[0] === type)[2];
 
@@ -26,6 +29,8 @@ export default function NewPostForm({ game, profile }) {
     else {
       formRef.current?.reset();
       setFileName('');
+      setSpoiler(false);
+      setScope('');
       setMsg({ ok: 'Publicado!' });
     }
   }
@@ -57,11 +62,24 @@ export default function NewPostForm({ game, profile }) {
             onChange={(e) => setFileName(e.target.files?.[0]?.name || '')} />
         </label>
         <label className="row small muted" style={{ gap: 6 }}>
-          <input type="checkbox" name="has_spoiler" style={{ width: 16, height: 16, accentColor: 'var(--accent)' }} />
+          <input type="checkbox" name="has_spoiler" checked={spoiler} onChange={(e) => setSpoiler(e.target.checked)} style={{ width: 16, height: 16, accentColor: 'var(--accent)' }} />
           Contém spoiler
         </label>
         <span style={{ marginLeft: 'auto' }}><SubmitButton pendingText="Publicando…">Publicar</SubmitButton></span>
       </div>
+      {spoiler && (
+        <div className="stack" style={{ gap: 8 }}>
+          <label className="form-label">
+            Até que ponto do jogo vai o spoiler?
+            <input className="field" name="spoiler_scope" maxLength={80} value={scope} onChange={(e) => setScope(e.target.value)} placeholder="ex: depois do chefe do capítulo 3" />
+          </label>
+          <div className="row" style={{ gap: 6 }}>
+            {SPOILER_SCOPES.map((s) => (
+              <button key={s} type="button" className={`pill ${scope === s ? 'on' : ''}`} onClick={() => setScope(s)}>{s}</button>
+            ))}
+          </div>
+        </div>
+      )}
       {msg?.error && <p className="error" role="alert">{msg.error}</p>}
       {msg?.ok && <p className="success" role="status">{msg.ok}</p>}
     </form>

@@ -9,5 +9,5 @@ export async function GET(request) {
     const supabase = createClient();
     await supabase.auth.exchangeCodeForSession(code);
   }
-  return NextResponse.redirect(`${origin}/configuracoes?bemvindo=1`);
+  return NextResponse.redirect(`${origin}/editar-perfil?bemvindo=1`);
 }

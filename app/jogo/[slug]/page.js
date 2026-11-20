@@ -7,7 +7,9 @@ import Cover from '@/components/Cover';
 import Avatar from '@/components/Avatar';
 import ReviewCard, { REVIEW_SELECT } from '@/components/ReviewCard';
 import { ChatIcon } from '@/components/Icons';
-import { stars, STATUS, PROFILE_FIELDS, genrePt, formatDate } from '@/lib/format';
+import { STATUS, PROFILE_FIELDS, genrePt, formatDate } from '@/lib/format';
+import Stars from '@/components/Stars';
+import PlatinumBox from './PlatinumBox';
 import EntryForm from './EntryForm';
 
 export async function generateMetadata({ params }) {
@@ -33,6 +35,12 @@ export default async function JogoPage({ params, searchParams }) {
     translatedSummary(game, 'pt-BR'),
   ]);
   const entries = all || [];
+  const [platinum, steamLink] = user
+    ? await Promise.all([
+        supabase.from('platinums').select('game_id').eq('user_id', user.id).eq('game_id', game.id).maybeSingle().then((r) => !!r.data),
+        supabase.from('linked_accounts').select('external_id').eq('user_id', user.id).eq('provider', 'steam').maybeSingle().then((r) => !!r.data),
+      ])
+    : [false, false];
   const friendIds = (following || []).map((f) => f.following_id);
 
   // Estatísticas da comunidade
@@ -106,6 +114,7 @@ export default async function JogoPage({ params, searchParams }) {
           </div>
           <div style={{ flex: '1 1 280px' }}>
             <EntryForm game={game} entry={myEntry} loggedIn={!!user} />
+            {user && <div style={{ marginTop: 12 }}><PlatinumBox game={{ id: game.id, slug: game.slug }} platinum={platinum} steamLinked={steamLink} /></div>}
           </div>
         </div>
       </section>
@@ -151,7 +160,7 @@ export default async function JogoPage({ params, searchParams }) {
                       <Avatar profile={f.profiles} size={30} />
                       <span style={{ flex: 1, fontWeight: 500 }}>{f.profiles.display_name || f.profiles.username}</span>
                       <span className="muted small">{STATUS[f.status] || ''}</span>
-                      <span className="stars small">{stars(f.rating)}</span>
+                      <Stars rating={f.rating} size={12} />
                     </Link>
                   ))}
                 </div>

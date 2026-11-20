@@ -49,7 +49,7 @@ export async function signUp(formData) {
   });
   if (error) back('/cadastro', error.message.includes('registered') ? 'Esse e-mail já tem conta. Tente entrar.' : 'Não foi possível criar a conta. Tente de novo.');
   if (!data.session) redirect('/entrar?aviso=confirme');
-  redirect('/configuracoes?bemvindo=1');
+  redirect('/editar-perfil?bemvindo=1');
 }
 
 export async function signOut() {

@@ -6,7 +6,8 @@ import Avatar from '@/components/Avatar';
 import GameRow from '@/components/GameRow';
 import CopyButton from '@/components/CopyButton';
 import ReviewCard, { REVIEW_SELECT } from '@/components/ReviewCard';
-import { stars, STATUS_VERB, PROFILE_FIELDS, formatDate } from '@/lib/format';
+import { STATUS_VERB, PROFILE_FIELDS, formatDate } from '@/lib/format';
+import Stars from '@/components/Stars';
 
 const FEATURES = [
   ['Seu diário de jogos', 'Marque o que está jogando, o que zerou e o que quer jogar. Dê notas de meia a 5 estrelas.'],
@@ -119,7 +120,7 @@ export default async function Home() {
                     <Cover game={a.games} />
                     <span className="row" style={{ gap: 6, flexWrap: 'nowrap' }}>
                       <Avatar profile={a.profiles} size={20} />
-                      {a.rating ? <span className="stars">{stars(a.rating)}</span> : <span className="muted" style={{ fontSize: 12 }}>{STATUS_VERB[a.status]}</span>}
+                      {a.rating ? <Stars rating={a.rating} size={12} /> : <span className="muted" style={{ fontSize: 12 }}>{STATUS_VERB[a.status]}</span>}
                     </span>
                   </Link>
                 ))}

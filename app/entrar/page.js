@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { signIn } from '@/app/auth/actions';
 import SubmitButton from '@/components/SubmitButton';
+import PasswordInput from '@/components/PasswordInput';
 
 export const metadata = { title: 'Entrar' };
 
@@ -20,7 +21,7 @@ export default function EntrarPage({ searchParams }) {
           </label>
           <label className="form-label">
             Senha
-            <input className="field" type="password" name="password" required autoComplete="current-password" />
+            <PasswordInput autoComplete="current-password" />
           </label>
           <SubmitButton pendingText="Entrando…">Entrar</SubmitButton>
         </form>

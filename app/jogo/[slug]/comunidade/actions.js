@@ -23,6 +23,7 @@ export async function createPost(formData) {
   const title = String(formData.get('title') || '').trim().slice(0, 200);
   const body = String(formData.get('body') || '').trim().slice(0, 5000) || null;
   const hasSpoiler = formData.get('has_spoiler') === 'on';
+  const spoilerScope = hasSpoiler ? String(formData.get('spoiler_scope') || '').trim().slice(0, 80) || null : null;
   const file = formData.get('image');
 
   if (!TYPES.includes(type)) return { error: 'Escolha o tipo do post.' };
@@ -40,7 +41,7 @@ export async function createPost(formData) {
   }
   if (type === 'foto' && !image_url) return { error: 'Posts do tipo Foto precisam de uma imagem.' };
 
-  const { error } = await supabase.from('posts').insert({ game_id: gameId, user_id: user.id, type, title, body, image_url, has_spoiler: hasSpoiler });
+  const { error } = await supabase.from('posts').insert({ game_id: gameId, user_id: user.id, type, title, body, image_url, has_spoiler: hasSpoiler, spoiler_scope: spoilerScope });
   if (error) return { error: 'Não foi possível publicar. Tente de novo.' };
   revalidatePath(`/jogo/${slug}/comunidade`);
   return { ok: true };

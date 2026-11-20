@@ -2,6 +2,9 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { igdb } from '@/lib/igdb';
+import { steamAppIdFor, steamAchievements } from '@/lib/steam';
 
 async function requireUser() {
   const supabase = createClient();
@@ -21,6 +24,7 @@ export async function saveEntry(formData) {
   const rating = ratingRaw >= 1 && ratingRaw <= 10 ? Math.round(ratingRaw) : null;
   const review = String(formData.get('review') || '').trim().slice(0, 5000) || null;
   const hasSpoiler = formData.get('has_spoiler') === 'on';
+  const spoilerScope = hasSpoiler ? String(formData.get('spoiler_scope') || '').trim().slice(0, 80) || null : null;
 
   if (!status && !rating && !review) {
     await supabase.from('game_entries').delete().eq('user_id', user.id).eq('game_id', gameId);
@@ -33,6 +37,7 @@ export async function saveEntry(formData) {
         rating,
         review,
         has_spoiler: hasSpoiler,
+        spoiler_scope: spoilerScope,
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'user_id,game_id' }
@@ -77,4 +82,28 @@ export async function report(formData) {
     reason: String(formData.get('reason') || '').slice(0, 500) || null,
   });
   revalidatePath(String(formData.get('path') || '/'));
+}
+
+// Confere na Steam se a pessoa platinou (todas as conquistas) e registra a platina
+export async function verifyPlatinum(formData) {
+  const { supabase, user } = await requireUser();
+  const gameId = Number(formData.get('game_id'));
+  const slug = String(formData.get('slug'));
+  const { data: link } = await supabase.from('linked_accounts').select('external_id').eq('user_id', user.id).eq('provider', 'steam').maybeSingle();
+  if (!link) return { error: 'Conecte sua conta Steam em Configurações primeiro.' };
+  const { data: game } = await supabase.from('games').select('id, steam_appid').eq('id', gameId).maybeSingle();
+  if (!game) return { error: 'Jogo não encontrado.' };
+  let appid = null;
+  try {
+    appid = await steamAppIdFor(game, igdb);
+  } catch {
+    return { error: 'Não foi possível consultar a base de jogos agora. Tente de novo.' };
+  }
+  if (!appid) return { error: 'Não encontramos este jogo na loja da Steam.' };
+  const result = await steamAchievements(link.external_id, appid);
+  if (result.error) return { error: result.error };
+  if (!result.platinum) return { error: `Ainda não: você tem ${result.done} de ${result.total} conquistas.`, progress: result };
+  await createAdminClient().from('platinums').upsert({ user_id: user.id, game_id: gameId, source: 'steam', verified_at: new Date().toISOString() });
+  revalidatePath(`/jogo/${slug}`);
+  return { ok: true, total: result.total };
 }

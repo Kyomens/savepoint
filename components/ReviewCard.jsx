@@ -1,13 +1,14 @@
 import Link from 'next/link';
 import Avatar from './Avatar';
 import Cover from './Cover';
-import { stars, timeAgo, PROFILE_FIELDS } from '@/lib/format';
+import { timeAgo, PROFILE_FIELDS } from '@/lib/format';
+import Stars from './Stars';
 import { toggleLike } from '@/app/jogo/[slug]/actions';
 
 // Campos que a consulta precisa trazer para este cartão:
 // "profiles!game_entries_user_id_fkey" diz ao banco QUAL ligação usar entre review e perfil
 // (sem isso ele se confunde com a tabela de curtidas e não devolve nada)
-export const REVIEW_SELECT = `id, rating, review, has_spoiler, status, updated_at, user_id, game_id, profiles!game_entries_user_id_fkey(${PROFILE_FIELDS}), games(slug, name, cover_url), review_likes(user_id), review_comments(count)`;
+export const REVIEW_SELECT = `id, rating, review, has_spoiler, spoiler_scope, status, updated_at, user_id, game_id, profiles!game_entries_user_id_fkey(${PROFILE_FIELDS}), games(slug, name, cover_url), review_likes(user_id), review_comments(count)`;
 
 export default function ReviewCard({ entry, userId, showGame = true, path = '/' }) {
   const p = entry.profiles;
@@ -33,12 +34,15 @@ export default function ReviewCard({ entry, userId, showGame = true, path = '/' 
               <Link href={`/jogo/${g.slug}`} className="display" style={{ fontWeight: 600, color: 'var(--strong)' }}>{g.name}</Link>
             </>
           )}
-          {entry.rating ? <span className="stars">{stars(entry.rating)}</span> : null}
+          <Stars rating={entry.rating} />
           <span className="muted small">{timeAgo(entry.updated_at)}</span>
         </div>
         {entry.has_spoiler ? (
           <details className="spoiler">
-            <summary>Esta review tem spoiler. <span style={{ color: 'var(--text)', fontWeight: 600 }}>Mostrar mesmo assim</span></summary>
+            <summary>
+              <span>Spoiler{entry.spoiler_scope ? <> até: <strong style={{ color: 'var(--text)' }}>{entry.spoiler_scope}</strong></> : ''}.</span>
+              <span style={{ color: 'var(--text)', fontWeight: 600 }}>Mostrar mesmo assim</span>
+            </summary>
             <p className="review-text">{entry.review}</p>
           </details>
         ) : (

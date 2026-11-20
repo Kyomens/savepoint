@@ -11,7 +11,7 @@ export const metadata = {
 };
 
 // Aplica o tema salvo antes da página aparecer (evita "piscar")
-const themeScript = `(function(){try{var t=localStorage.getItem('tema');if(!t){t=window.matchMedia('(prefers-color-scheme: light)').matches?'claro':'escuro'}document.documentElement.dataset.theme=t}catch(e){document.documentElement.dataset.theme='escuro'}})();`;
+const themeScript = `(function(){try{var t=localStorage.getItem('tema');if(!t||t==='auto'){t=window.matchMedia('(prefers-color-scheme: light)').matches?'claro':'escuro'}document.documentElement.dataset.theme=t}catch(e){document.documentElement.dataset.theme='escuro'}})();`;
 
 export default function RootLayout({ children }) {
   return (
